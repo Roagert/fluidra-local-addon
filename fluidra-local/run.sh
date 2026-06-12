@@ -27,12 +27,10 @@ export FLUIDRA_USERNAME="$(json_get fluidra_username '')"
 export FLUIDRA_PASSWORD="$(json_get fluidra_password '')"
 export FLUIDRA_REFRESH_TOKEN="$(json_get fluidra_refresh_token '')"
 export FLUIDRA_LOCAL_DEVICE_IP="$KNOWN_DEVICE_IP"
+export FLUIDRA_LOCAL_AUTH_TOKEN="$AUTH_TOKEN"
 export PYTHONUNBUFFERED=1
 
 args=(python3 /app/fluidra_local.py serve --host "$HOST" --port "$PORT" --backend "$BACKEND" --device-id "$DEVICE_ID")
-if [[ -n "$AUTH_TOKEN" ]]; then
-  args+=(--auth-token "$AUTH_TOKEN")
-fi
 
 echo "Starting Fluidra Local Bridge backend=$BACKEND host=$HOST port=$PORT device_id=$DEVICE_ID auth=$([[ -n "$AUTH_TOKEN" ]] && echo enabled || echo disabled) log_level=$LOG_LEVEL"
 exec "${args[@]}"
