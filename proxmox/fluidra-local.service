@@ -1,0 +1,22 @@
+[Unit]
+Description=Fluidra Local Bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fluidra-local
+Group=fluidra-local
+WorkingDirectory=/opt/fluidra-local
+EnvironmentFile=/etc/fluidra-local/fluidra-local.env
+ExecStart=/opt/fluidra-local/proxmox/start-fluidra-local.sh
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/fluidra-local /etc/fluidra-local
+
+[Install]
+WantedBy=multi-user.target

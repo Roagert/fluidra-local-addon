@@ -1,0 +1,43 @@
+name: Fluidra Local Bridge
+version: "0.1.0"
+slug: fluidra_local
+description: Local REST bridge for Fluidra heat pump control
+url: "https://github.com/Roagert/fluidra-local-addon"
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: services
+boot: auto
+init: false
+host_network: false
+ports:
+  8765/tcp: 8765
+ports_description:
+  8765/tcp: Fluidra Local Bridge REST API
+options:
+  host: "0.0.0.0"
+  port: 8765
+  backend: "cloud"
+  device_id: "LG24440781"
+  known_device_ip: "192.168.1.29"
+  auth_token: ""
+  fluidra_username: ""
+  fluidra_password: ""
+  fluidra_refresh_token: ""
+  log_level: "info"
+schema:
+  host: str
+  port: port
+  backend: list(dry-run|cloud)
+  device_id: str
+  known_device_ip: str?
+  auth_token: password?
+  fluidra_username: str?
+  fluidra_password: password?
+  fluidra_refresh_token: password?
+  log_level: list(debug|info|warning|error)
+map:
+  - share:rw
