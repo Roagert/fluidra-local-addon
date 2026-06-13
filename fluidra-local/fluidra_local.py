@@ -760,6 +760,7 @@ def main(argv: list[str] | None = None) -> int:
     srv.add_argument("--device-id", default=DEFAULT_DEVICE_ID)
     srv.add_argument("--backend", choices=["dry-run", "cloud"], default="dry-run")
     srv.add_argument("--auth-token", default=os.environ.get("FLUIDRA_LOCAL_AUTH_TOKEN"), help="optional bearer token required for write endpoints")
+    srv.add_argument("--no-mdns", action="store_true", default=str(os.environ.get("FLUIDRA_LOCAL_MDNS", "1")).lower() in {"0", "false", "no", "off"}, help="disable Home Assistant zeroconf advertisement after the bridge is already configured")
 
     disc = sub.add_parser("discover", help="discover local network candidates for the configured Fluidra device")
     disc.add_argument("--device-ip", default=DEFAULT_DEVICE_IP)
@@ -782,14 +783,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "serve":
         controller = (CloudRestController.from_env(device_id=args.device_id) if args.backend == "cloud" else DryRunController(device_id=args.device_id))
         server = start_local_server(controller, host=args.host, port=args.port, auth_token=args.auth_token)
-        advertiser = MdnsAdvertiser(
-            host=args.host,
-            port=server.server_address[1],
-            device_id=args.device_id,
-            backend=args.backend,
-            auth_required=bool(args.auth_token),
-        )
-        advertiser.start()
+        advertiser = None
+        if args.no_mdns:
+            print("fluidra local mDNS disabled by configuration", flush=True)
+        else:
+            advertiser = MdnsAdvertiser(
+                host=args.host,
+                port=server.server_address[1],
+                device_id=args.device_id,
+                backend=args.backend,
+                auth_required=bool(args.auth_token),
+            )
+            advertiser.start()
         print(f"fluidra local server listening on http://{args.host}:{server.server_address[1]}", flush=True)
         try:
             server.thread.join()
@@ -797,7 +802,8 @@ def main(argv: list[str] | None = None) -> int:
             server.shutdown()
             server.server_close()
         finally:
-            advertiser.stop()
+            if advertiser is not None:
+                advertiser.stop()
         return 0
     if args.cmd == "discover":
         print(json.dumps(discover_local_devices(known_device_ip=args.device_ip, known_device_id=args.device_id, run_probe=not args.no_probe), indent=2, sort_keys=True))

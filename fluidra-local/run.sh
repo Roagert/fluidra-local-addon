@@ -12,7 +12,7 @@ fi
 
 json_get() {
   local key="$1" default="${2:-}"
-  jq -r --arg key "$key" --arg default "$default" '.[$key] // $default' "$OPTIONS"
+  jq -r --arg key "$key" --arg default "$default" 'if has($key) and .[$key] != null then .[$key] else $default end' "$OPTIONS"
 }
 
 HOST="$(json_get host '0.0.0.0')"
@@ -22,6 +22,7 @@ DEVICE_ID="$(json_get device_id 'LG24440781')"
 KNOWN_DEVICE_IP="$(json_get known_device_ip '')"
 AUTH_TOKEN="$(json_get auth_token '')"
 LOG_LEVEL="$(json_get log_level 'info')"
+ADVERTISE_MDNS="$(json_get advertise_mdns 'false')"
 
 export FLUIDRA_USERNAME="$(json_get fluidra_username '')"
 export FLUIDRA_PASSWORD="$(json_get fluidra_password '')"
@@ -31,6 +32,9 @@ export FLUIDRA_LOCAL_AUTH_TOKEN="$AUTH_TOKEN"
 export PYTHONUNBUFFERED=1
 
 args=(python3 /app/fluidra_local.py serve --host "$HOST" --port "$PORT" --backend "$BACKEND" --device-id "$DEVICE_ID")
+if [[ "${ADVERTISE_MDNS,,}" =~ ^(0|false|no|off)$ ]]; then
+  args+=(--no-mdns)
+fi
 
 echo "Starting Fluidra Local Bridge backend=$BACKEND host=$HOST port=$PORT device_id=$DEVICE_ID auth=$([[ -n "$AUTH_TOKEN" ]] && echo enabled || echo disabled) log_level=$LOG_LEVEL"
 exec "${args[@]}"
