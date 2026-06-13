@@ -19,6 +19,7 @@ import os
 import subprocess
 import time
 import threading
+import socket
 import urllib.error
 import urllib.request
 from collections import defaultdict
@@ -29,8 +30,16 @@ from urllib.parse import parse_qs, urlparse
 
 import emulator_flows
 
+try:
+    from zeroconf import IPVersion, ServiceInfo, Zeroconf
+except Exception:  # pragma: no cover - zeroconf is optional outside packaged server installs
+    IPVersion = ServiceInfo = Zeroconf = None
+
 DEFAULT_DEVICE_IP = "192.168.1.29"
 DEFAULT_DEVICE_ID = "LG24440781"
+MDNS_SERVICE_TYPE = "_fluidra-local._tcp.local."
+MDNS_SERVICE_NAME = "Fluidra Local Bridge._fluidra-local._tcp.local."
+
 SUPPORTED_COMPONENTS = {
     13: "power",
     14: "mode",
@@ -247,6 +256,71 @@ def capture_evidence(
     }
 
 
+
+
+
+
+def _local_advertise_ip(host: str) -> str:
+    """Return the LAN-facing IPv4 address used for mDNS advertisements."""
+    if host not in {"", "0.0.0.0", "::"}:
+        return host
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("8.8.8.8", 80))
+        return sock.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        sock.close()
+
+
+class MdnsAdvertiser:
+    """Optional mDNS/Zeroconf advertiser for Home Assistant discovery."""
+
+    def __init__(self, *, host: str, port: int, device_id: str, backend: str, auth_required: bool) -> None:
+        self.host = host
+        self.port = int(port)
+        self.device_id = device_id
+        self.backend = backend
+        self.auth_required = auth_required
+        self.zeroconf = None
+        self.info = None
+
+    def start(self) -> bool:
+        if Zeroconf is None or ServiceInfo is None:
+            print("fluidra local mDNS disabled: zeroconf package is not installed", flush=True)
+            return False
+        advertise_ip = _local_advertise_ip(self.host)
+        properties = {
+            "api_version": "1",
+            "base_url": f"http://{advertise_ip}:{self.port}",
+            "device_id": self.device_id,
+            "backend": self.backend,
+            "auth_required": "1" if self.auth_required else "0",
+            "path": "/",
+        }
+        self.zeroconf = Zeroconf(ip_version=IPVersion.V4Only)
+        self.info = ServiceInfo(
+            MDNS_SERVICE_TYPE,
+            MDNS_SERVICE_NAME,
+            addresses=[socket.inet_aton(advertise_ip)],
+            port=self.port,
+            properties=properties,
+            server=f"fluidra-local-{self.device_id.lower()}.local.",
+        )
+        self.zeroconf.register_service(self.info)
+        print(f"fluidra local mDNS advertising {MDNS_SERVICE_TYPE} at http://{advertise_ip}:{self.port}", flush=True)
+        return True
+
+    def stop(self) -> None:
+        if self.zeroconf is None or self.info is None:
+            return
+        try:
+            self.zeroconf.unregister_service(self.info)
+        finally:
+            self.zeroconf.close()
+            self.zeroconf = None
+            self.info = None
 
 
 class HTTPStatusError(RuntimeError):
@@ -708,12 +782,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "serve":
         controller = (CloudRestController.from_env(device_id=args.device_id) if args.backend == "cloud" else DryRunController(device_id=args.device_id))
         server = start_local_server(controller, host=args.host, port=args.port, auth_token=args.auth_token)
+        advertiser = MdnsAdvertiser(
+            host=args.host,
+            port=server.server_address[1],
+            device_id=args.device_id,
+            backend=args.backend,
+            auth_required=bool(args.auth_token),
+        )
+        advertiser.start()
         print(f"fluidra local server listening on http://{args.host}:{server.server_address[1]}", flush=True)
         try:
             server.thread.join()
         except KeyboardInterrupt:
             server.shutdown()
             server.server_close()
+        finally:
+            advertiser.stop()
         return 0
     if args.cmd == "discover":
         print(json.dumps(discover_local_devices(known_device_ip=args.device_ip, known_device_id=args.device_id, run_probe=not args.no_probe), indent=2, sort_keys=True))

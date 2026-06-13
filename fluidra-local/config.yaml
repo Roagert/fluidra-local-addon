@@ -1,5 +1,5 @@
 name: Fluidra Local Bridge
-version: "0.1.0"
+version: "0.1.2"
 slug: fluidra_local
 description: Local REST bridge for Fluidra heat pump control
 url: "https://github.com/Roagert/fluidra-local-addon"
@@ -12,7 +12,7 @@ arch:
 startup: services
 boot: auto
 init: false
-host_network: false
+host_network: true
 ports:
   8765/tcp: 8765
 ports_description:
