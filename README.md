@@ -1,3 +1,25 @@
+> [!WARNING]
+> **Deprecated — superseded by [Roagert/ha-fluidra-pool](https://github.com/Roagert/ha-fluidra-pool) 2.0.0.**
+> 2.0.0 is still in progress ([ha-fluidra-pool#11](https://github.com/Roagert/ha-fluidra-pool/pull/11));
+> this notice applies once it is released. This bridge was only a second hop to the same
+> Fluidra cloud; Fluidra Pool talks to that cloud directly from Home Assistant (REST +
+> WebSocket push), so neither this bridge nor `ha-fluidra-local` is needed.
+>
+> To migrate:
+>
+> 1. Stop the bridge. Add-on: Settings → Add-ons → **Fluidra Local Bridge** → **Uninstall**,
+>    then remove this add-on repository. Proxmox/Debian: run
+>    `sudo bash /opt/fluidra-local/proxmox/uninstall.sh`, then delete `/etc/fluidra-local`
+>    (the script keeps it; it holds your Fluidra credentials/token).
+> 2. Remove the **Fluidra Local Server** integration: delete its entry under Settings →
+>    Devices & services, remove it and its custom repository in HACS, restart Home Assistant.
+> 3. HACS → ⋮ → **Custom repositories** → add `https://github.com/Roagert/ha-fluidra-pool`,
+>    type **Integration**; download **Fluidra Pool** and restart Home Assistant.
+> 4. Settings → Devices & services → **Add integration** → **Fluidra Pool**, then sign in with
+>    your Fluidra account e-mail and password (two-step verification / MFA codes are supported).
+> 5. Entity ids will differ, because Fluidra Pool is a different integration domain
+>    (`fluidra_pool`, not `fluidra_local`): update your automations and dashboards.
+
 # Fluidra Local Add-on
 
 Home Assistant add-on and Proxmox helper packaging for the Fluidra Local Bridge.
